@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SterlingFlow – Sign In / Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        /* Center the auth card */
+        .auth-container {
+            display: flex;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            padding: 2rem;
+        }
+        .toggle-link {
+            cursor: pointer;
+            color: var(--primary);
+            margin-top: 1rem;
+            display: block;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="glass-panel auth-card">
+            <h2 id="form-title" class="modal-title" style="text-align: center; margin-bottom: 1.5rem;">
+                <i class="fa-solid fa-user" style="color: var(--primary); margin-right: 0.5rem;"></i>
+                <span id="title-text">Sign In</span>
+            </h2>
+            <form id="auth-form" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" id="username" class="form-control" required placeholder="Enter your username" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-control" required placeholder="Enter your password" />
+                </div>
+                <div class="modal-footer" style="justify-content: center;">
+                    <button type="submit" class="btn btn-primary" id="submit-btn">Sign In</button>
+                </div>
+            </form>
+            <div class="toggle-link" id="toggle-auth">Don't have an account? Register</div>
+        </div>
+    </div>
+
+    <script>
+        const isLogin = { value: true };
+        const formTitle = document.getElementById('form-title');
+        const titleText = document.getElementById('title-text');
+        const submitBtn = document.getElementById('submit-btn');
+        const toggleLink = document.getElementById('toggle-auth');
+        const authForm = document.getElementById('auth-form');
+
+        function setMode(login) {
+            isLogin.value = login;
+            titleText.textContent = login ? 'Sign In' : 'Create Account';
+            submitBtn.textContent = login ? 'Sign In' : 'Register';
+            toggleLink.textContent = login ? "Don't have an account? Register" : "Already have an account? Sign In";
+        }
+
+        toggleLink.addEventListener('click', () => setMode(!isLogin.value));
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                alert('Please fill in both fields');
+                return;
+            }
+            const endpoint = isLogin.value ? '/api/login' : '/api/register';
+            try {
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    // Successful auth – redirect to dashboard
+                    window.location.href = '/';
+                } else {
+                    alert(data.error || 'Authentication failed');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
+        });
+    </script>
+</body>
+</html>

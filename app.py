@@ -2,29 +2,37 @@ import os
 import csv
 import uuid
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+import json
 
 app = Flask(__name__)
 
-# 1. Fix the session log-out bug by using a stable environment variable
+# Secret key for session management (use env var in production)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'development-fallback-key-123')
 
-# 2. Securely fetch your Supabase connection string from Render
-db_url = os.environ.get('DATABASE_URL')
+# Simple JSON based user store
+USERS_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
 
-if db_url:
-    # Fix the SQLAlchemy compatibility bug (changes postgres:// to postgresql://)
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-else:
-    # Local fallback for your machine so it doesn't crash during offline testing
-    db_url = 'sqlite:///local_budget.db'
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        return {}
+    with open(USERS_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-# 3. Bind the connection string to Flask
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+def save_users(users):
+    with open(USERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users, f, indent=2)
 
-db = SQLAlchemy(app)
+def get_user(username):
+    users = load_users()
+    return users.get(username)
+
+def create_user(username, password_hash):
+    users = load_users()
+    if username in users:
+        return False
+    users[username] = {'password_hash': password_hash}
+    save_users(users)
+    return True
 
 
 
@@ -116,6 +124,41 @@ def index():
 def auth():
     """Render login/register page."""
     return render_template('auth.html')
+
+# Register endpoint
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password required'}), 400
+    from werkzeug.security import generate_password_hash
+    password_hash = generate_password_hash(password)
+    if not create_user(username, password_hash):
+        return jsonify({'success': False, 'error': 'User already exists'}), 409
+    # Auto‑login after registration
+    session['user_id'] = username
+    session['username'] = username
+    return jsonify({'success': True, 'message': 'Registered and logged in'}), 201
+
+# Login endpoint
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password required'}), 400
+    user = get_user(username)
+    if not user:
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+    from werkzeug.security import check_password_hash
+    if not check_password_hash(user['password_hash'], password):
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+    session['user_id'] = username
+    session['username'] = username
+    return jsonify({'success': True, 'message': 'Logged in'}), 200
 
 
 @app.route('/api/transactions', methods=['GET'])
