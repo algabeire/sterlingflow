@@ -1,9 +1,32 @@
 import os
 import csv
 import uuid
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+
+# 1. Fix the session log-out bug by using a stable environment variable
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'development-fallback-key-123')
+
+# 2. Securely fetch your Supabase connection string from Render
+db_url = os.environ.get('DATABASE_URL')
+
+if db_url:
+    # Fix the SQLAlchemy compatibility bug (changes postgres:// to postgresql://)
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+else:
+    # Local fallback for your machine so it doesn't crash during offline testing
+    db_url = 'sqlite:///local_budget.db'
+
+# 3. Bind the connection string to Flask
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+
 
 CSV_FILE = os.path.join(os.path.dirname(__file__), 'transactions.csv')
 
@@ -73,12 +96,30 @@ def calculate_summary(transactions):
         'categories': categories
     }
 
+def login_required(f):
+    """Decorator to protect routes requiring authentication."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('auth'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
+@login_required
 def index():
-    """Render the dashboard application shell."""
+    """Render the dashboard application shell (requires login)."""
     return render_template('index.html')
 
+@app.route('/auth')
+def auth():
+    """Render login/register page."""
+    return render_template('auth.html')
+
+
 @app.route('/api/transactions', methods=['GET'])
+@login_required
 def get_transactions():
     """Retrieve transaction list and summaries. Supports filtering and search."""
     try:
@@ -114,6 +155,7 @@ def get_transactions():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/transactions', methods=['POST'])
+@login_required
 def add_transaction():
     """Add a new transaction to the CSV database."""
     try:
@@ -127,7 +169,7 @@ def add_transaction():
         category = data.get('category', '').strip()
         amount_val = data.get('amount')
         date = data.get('date', '').strip()
-
+        
         if not description:
             return jsonify({'success': False, 'error': 'Description is required'}), 400
         if tx_type not in ['income', 'expense']:
@@ -143,7 +185,7 @@ def add_transaction():
                 raise ValueError()
         except (TypeError, ValueError):
             return jsonify({'success': False, 'error': 'Amount must be a positive number'}), 400
-
+        
         # Load existing, add new transaction, and write back
         transactions = read_transactions()
         
@@ -168,6 +210,7 @@ def add_transaction():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/transactions/<tx_id>', methods=['PUT'])
+@login_required
 def update_transaction(tx_id):
     """Update an existing transaction in the CSV database."""
     try:
@@ -224,6 +267,7 @@ def update_transaction(tx_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/transactions/<tx_id>', methods=['DELETE'])
+@login_required
 def delete_transaction(tx_id):
     """Delete a transaction from the CSV database."""
     try:
@@ -260,5 +304,10 @@ def download_transactions():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-if __name__ == '__main__':
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    """Log the user out and clear the session."""
+    session.clear()
+    return jsonify({'success': True, 'message': 'Logged out'}), 200
+
     app.run(debug=True, port=5000)
