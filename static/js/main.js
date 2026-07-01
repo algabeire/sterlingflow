@@ -50,7 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         toastContainer: document.getElementById('toast-container'),
         chartCanvas: document.getElementById('expenseChart'),
-        chartPlaceholder: document.getElementById('chart-placeholder')
+        chartPlaceholder: document.getElementById('chart-placeholder'),
+        // New logout button element
+        logoutBtn: document.getElementById('logout-btn')
     };
 
     // --- Toast Notifications ---
@@ -180,6 +182,19 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModal(elements.addModal);
         resetTransactionForm();
     });
+    // Logout button handler
+    elements.logoutBtn.addEventListener('click', async () => {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+            // Clear client state if needed
+            window.location.href = '/auth';
+        } catch (err) {
+            console.error('Logout failed', err);
+            showToast('Logout failed', 'error');
+        }
+    });
+
+    // Existing close delete modal listener
     elements.closeDeleteModalBtn.addEventListener('click', () => closeModal(elements.deleteModal));
 
     // Close modals on backdrop click
