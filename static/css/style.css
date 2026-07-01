@@ -64,8 +64,8 @@ body {
 }
 
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: 100%;
+    padding: 1rem 0.5rem;
 }
 
 /* Glassmorphism utility */
@@ -87,15 +87,14 @@ body {
 
 /* Header design */
 header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
 }
 
 h1 {
     font-family: var(--font-heading);
-    font-size: 2.25rem;
+    font-size: 1.75rem;
     font-weight: 800;
     background: linear-gradient(135deg, #fff 30%, #a855f7 100%);
     -webkit-background-clip: text;
@@ -107,7 +106,7 @@ h1 {
 
 h2 {
     font-family: var(--font-heading);
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -284,7 +283,7 @@ h2 {
 .chart-wrapper {
     position: relative;
     width: 100%;
-    height: 250px;
+    height: 200px;
 }
 
 /* Control & Listing Panel */
