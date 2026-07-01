@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sterling Budget Tracker | Premium Personal Finance</title>
+    <!-- Custom styling -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Dashboard Header -->
+        <header>
+            <h1>
+                <i class="fa-solid fa-sterling-sign"></i> SterlingFlow
+            </h1>
+            <div style="display: flex; gap: 0.75rem;">
+                <button id="export-csv-btn" class="btn btn-secondary">
+                    <i class="fa-solid fa-file-export"></i> Export CSV
+                </button>
+                <button id="open-add-modal-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> New Transaction
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI Metrics Grid -->
+        <section class="summary-grid" aria-label="Financial Summary">
+            <!-- Balance Card -->
+            <div class="glass-panel kpi-card balance">
+                <div class="kpi-header">
+                    <span>Net Balance</span>
+                    <div class="kpi-icon">
+                        <i class="fa-solid fa-wallet"></i>
+                    </div>
+                </div>
+                <div id="val-balance" class="kpi-value">£0.00</div>
+            </div>
+
+            <!-- Income Card -->
+            <div class="glass-panel kpi-card income">
+                <div class="kpi-header">
+                    <span>Total Income</span>
+                    <div class="kpi-icon">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                    </div>
+                </div>
+                <div id="val-income" class="kpi-value">£0.00</div>
+            </div>
+
+            <!-- Expense Card -->
+            <div class="glass-panel kpi-card expense">
+                <div class="kpi-header">
+                    <span>Total Expense</span>
+                    <div class="kpi-icon">
+                        <i class="fa-solid fa-arrow-trend-down"></i>
+                    </div>
+                </div>
+                <div id="val-expense" class="kpi-value">£0.00</div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Dashboard Layout -->
+        <main class="dashboard-layout">
+            <!-- Left: Charts / Analytics Panel -->
+            <section class="glass-panel chart-panel">
+                <h2>Expense Breakdown</h2>
+                <div class="chart-wrapper">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div id="chart-placeholder" class="empty-state" style="display: none;">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <p>No expenses recorded yet</p>
+                </div>
+            </section>
+
+            <!-- Right: Listing and Filtering Panel -->
+            <section class="glass-panel listing-panel">
+                <div class="filter-bar">
+                    <div class="search-input-wrapper">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="search-tx" class="form-control" placeholder="Search description...">
+                    </div>
+                    <select id="filter-type" class="select-control" aria-label="Filter by type">
+                        <option value="">All Types</option>
+                        <option value="income">Income Only</option>
+                        <option value="expense">Expense Only</option>
+                    </select>
+                    <select id="filter-category" class="select-control" aria-label="Filter by category">
+                        <option value="">All Categories</option>
+                        <!-- Categories will be added dynamically by JS -->
+                    </select>
+                </div>
+
+                <!-- Transactions Table Container -->
+                <div class="table-wrapper">
+                    <table id="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th style="width: 50px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                    
+                    <div id="list-loader" class="loader-wrapper">
+                        <div class="loader"></div>
+                    </div>
+                    
+                    <div id="empty-state" class="empty-state" style="display: none;">
+                        <i class="fa-solid fa-receipt"></i>
+                        <p>No transactions match your search/filters</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Add Transaction -->
+    <div id="add-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title-add">
+        <div class="glass-panel modal-container">
+            <h3 id="modal-title-add" class="modal-title">
+                <i class="fa-solid fa-circle-plus" style="color: var(--primary);"></i> Add Transaction
+            </h3>
+            <form id="add-transaction-form" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="tx-type">Transaction Type</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="type" id="tx-type-expense" value="expense" checked> Expense
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="type" id="tx-type-income" value="income"> Income
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="tx-date">Date</label>
+                    <input type="date" id="tx-date" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="tx-desc">Description</label>
+                    <input type="text" id="tx-desc" class="form-control" placeholder="e.g., Sainsbury's Groceries" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="tx-category">Category</label>
+                    <select id="tx-category" class="select-control" style="width: 100%;" required>
+                        <!-- Dynamically filled depending on type -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="tx-amount">Amount (£)</label>
+                    <input type="number" id="tx-amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="close-add-modal-btn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="save-transaction-btn" class="btn btn-primary">Save Transaction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Confirm Delete -->
+    <div id="delete-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title-delete">
+        <div class="glass-panel modal-container">
+            <h3 id="modal-title-delete" class="modal-title">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--expense);"></i> Delete Transaction?
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Are you sure you want to permanently delete this transaction? This action cannot be undone.
+            </p>
+            <div class="modal-footer">
+                <button type="button" id="close-delete-modal-btn" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="confirm-delete-btn" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Main JavaScript Logic -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
